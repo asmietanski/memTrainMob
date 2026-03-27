@@ -35,8 +35,12 @@ export default function App() {
         const result = await scanExternalImages(database);
         console.log('Auto-scan complete:', result);
         
-        if (result.added > 0) {
+        if (result.error) {
+          setInitStatus(result.error);
+        } else if (result.added > 0) {
           setInitStatus(`Found ${result.added} new items!`);
+        } else if (result.scanned === 0) {
+          setInitStatus('No images found. Create folder:\n/storage/emulated/0/Documents/memTrain/');
         } else {
           setInitStatus('All images already in database');
         }

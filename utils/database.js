@@ -307,45 +307,59 @@ export function getImageUri(imagePath) {
  */
 export async function scanExternalImages(db) {
     // Use Android's public Documents directory
-    const baseDir = 'file:///storage/emulated/0/Documents/memTrain/';
+    const basePath = '/storage/emulated/0/Documents/memTrain/';
     
     try {
-        // Create memTrain directory if it doesn't exist
-        const dirInfo = await FileSystem.getInfoAsync(baseDir);
-        if (!dirInfo.exists) {
-            await FileSystem.makeDirectoryAsync(baseDir, { intermediates: true });
-            return { scanned: 0, added: 0, skipped: 0 };
-        }
-        
         let scanned = 0;
         let added = 0;
         let skipped = 0;
         
-        // Get list of items in memTrain directory
-        const items = await FileSystem.readDirectoryAsync(baseDir);
+        // Try to access the directory using new File API
+        const baseDir = new FileSystem.Directory(basePath);
+        
+        // Check if directory exists
+        let exists = false;
+        try {
+            exists = await baseDir.exists();
+        } catch (e) {
+            console.log('Directory does not exist yet:', basePath);
+            return { scanned: 0, added: 0, skipped: 0, error: 'Directory not found. Please create: ' + basePath };
+        }
+        
+        if (!exists) {
+            console.log('memTrain directory not found at:', basePath);
+            return { scanned: 0, added: 0, skipped: 0, error: 'Directory not found. Please create: ' + basePath };
+        }
+        
+        // List all items in memTrain directory
+        const items = await baseDir.list();
         
         for (const item of items) {
-            const itemPath = baseDir + item + '/';
+            // Check if it's a directory
+            if (!item.isDirectory) continue;
             
-            // Try to read as directory - if it fails, skip
+            const category = item.name;
+            const categoryDir = new FileSystem.Directory(basePath + category + '/');
+            
+            // List files in category directory
             let files;
             try {
-                files = await FileSystem.readDirectoryAsync(itemPath);
+                files = await categoryDir.list();
             } catch (e) {
-                // Not a directory or can't read, skip
+                console.log('Cannot read category directory:', category);
                 continue;
             }
             
-            // This is a category directory
-            const category = item;
-            
             for (const file of files) {
+                // Skip directories, only process files
+                if (file.isDirectory) continue;
+                
                 // Only process image files
-                if (!file.match(/\.(jpg|jpeg|png|gif)$/i)) continue;
+                if (!file.name.match(/\.(jpg|jpeg|png|gif)$/i)) continue;
                 
                 scanned++;
-                const imagePath = categoryPath + file;
-                const name = file.replace(/\.(jpg|jpeg|png|gif)$/i, '').replace(/_/g, ' ');
+                const imagePath = basePath + category + '/' + file.name;
+                const name = file.name.replace(/\.(jpg|jpeg|png|gif)$/i, '').replace(/_/g, ' ');
                 
                 // Check if already deleted
                 const isDeleted = await isItemDeleted(db, imagePath);
@@ -383,7 +397,7 @@ export async function scanExternalImages(db) {
         return { scanned, added, skipped };
     } catch (error) {
         console.error('Error scanning external images:', error);
-        throw error;
+        return { scanned: 0, added: 0, skipped: 0, error: error.message };
     }
 }
 
