@@ -303,36 +303,34 @@ export function getImageUri(imagePath) {
 
 /**
  * Scan external storage for images and populate database
- * Path: /sdcard/memTrain/images/CategoryName/*.jpg
+ * Path: /sdcard/memTrain/CategoryName/*.jpg
  */
 export async function scanExternalImages(db) {
-    // Use direct path to external storage
-    const externalDir = 'file:///sdcard/memTrain/images/';
+    // Use direct path to external storage - scan root memTrain directory
+    const externalDir = 'file:///sdcard/memTrain/';
     
     try {
-        // Check if directory exists
-        const dirInfo = await FileSystem.getInfoAsync(externalDir);
-        if (!dirInfo.exists) {
-            console.log('External images directory not found:', externalDir);
-            return { scanned: 0, added: 0, skipped: 0 };
-        }
-        
         let scanned = 0;
         let added = 0;
         let skipped = 0;
         
-        // Get list of categories (folders)
-        const categories = await FileSystem.readDirectoryAsync(externalDir);
+        // Get list of items in memTrain directory
+        const items = await FileSystem.readDirectoryAsync(externalDir);
         
-        for (const category of categories) {
-            const categoryPath = externalDir + category + '/';
+        for (const item of items) {
+            const itemPath = externalDir + item + '/';
             
-            // Check if it's a directory
-            const catInfo = await FileSystem.getInfoAsync(categoryPath);
-            if (!catInfo.isDirectory) continue;
+            // Try to read as directory - if it fails, skip
+            let files;
+            try {
+                files = await FileSystem.readDirectoryAsync(itemPath);
+            } catch (e) {
+                // Not a directory or can't read, skip
+                continue;
+            }
             
-            // Get images in category
-            const files = await FileSystem.readDirectoryAsync(categoryPath);
+            // This is a category directory
+            const category = item;
             
             for (const file of files) {
                 // Only process image files
@@ -386,9 +384,9 @@ export async function scanExternalImages(db) {
  * Get external storage path for images
  */
 export function getExternalImagesPath() {
-    // On Android: /storage/emulated/0/memTrain/images/
-    // This is accessible as /sdcard/memTrain/images/
-    return '/sdcard/memTrain/images/';
+    // On Android: /storage/emulated/0/memTrain/
+    // This is accessible as /sdcard/memTrain/
+    return '/sdcard/memTrain/';
 }
 
 // Made with Bob
