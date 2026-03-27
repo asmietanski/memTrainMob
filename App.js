@@ -2,8 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { openDatabase, scanExternalImages, getCategories } from './utils/database';
+import { openDatabase, scanExternalImages } from './utils/database';
 import HomeScreen from './screens/HomeScreen';
 import CategoryScreen from './screens/CategoryScreen';
 import StudyScreen from './screens/StudyScreen';
@@ -29,28 +28,25 @@ export default function App() {
       const database = await openDatabase();
       setDb(database);
 
-      // Check if first launch
-      const hasScanned = await AsyncStorage.getItem('hasScannedImages');
+      // Always scan on launch to pick up new directories
+      setInitStatus('Scanning /sdcard/memTrain/ for images...');
       
-      if (!hasScanned) {
-        // First launch - auto-scan external images
-        setInitStatus('First launch detected...');
-        setInitStatus('Scanning /sdcard/memTrain/ for images...');
+      try {
+        const result = await scanExternalImages(database);
+        console.log('Auto-scan complete:', result);
         
-        try {
-          const result = await scanExternalImages(database);
-          console.log('Auto-scan complete:', result);
-          
-          // Mark as scanned
-          await AsyncStorage.setItem('hasScannedImages', 'true');
-          
-          setInitStatus(`Scan complete! Added ${result.added} items from ${result.scanned} images.`);
-        } catch (scanError) {
-          console.error('Auto-scan failed:', scanError);
-          setInitStatus('Scan failed, but app will continue...');
+        if (result.added > 0) {
+          setInitStatus(`Found ${result.added} new items!`);
+        } else {
+          setInitStatus('All images already in database');
         }
+      } catch (scanError) {
+        console.error('Auto-scan failed:', scanError);
+        setInitStatus('Scan failed, but app will continue...');
       }
       
+      // Small delay to show status
+      await new Promise(resolve => setTimeout(resolve, 1000));
       setIsInitializing(false);
     } catch (error) {
       console.error('Failed to initialize app:', error);
