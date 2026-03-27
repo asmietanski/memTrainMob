@@ -302,12 +302,12 @@ export function getImageUri(imagePath) {
 }
 
 /**
- * Scan app's document directory for images and populate database
- * Path: {documentDirectory}/memTrain/CategoryName/*.jpg
+ * Scan Android Documents directory for images and populate database
+ * Path: /storage/emulated/0/Documents/memTrain/CategoryName/*.jpg
  */
 export async function scanExternalImages(db) {
-    // Use app's document directory - always accessible
-    const baseDir = FileSystem.documentDirectory + 'memTrain/';
+    // Use Android's public Documents directory
+    const baseDir = 'file:///storage/emulated/0/Documents/memTrain/';
     
     try {
         // Create memTrain directory if it doesn't exist
@@ -391,8 +391,8 @@ export async function scanExternalImages(db) {
  * Get external storage path for images
  */
 export function getExternalImagesPath() {
-    // App's document directory
-    return FileSystem.documentDirectory + 'memTrain/';
+    // Android's public Documents directory
+    return '/storage/emulated/0/Documents/memTrain/';
 }
 
 // Made with Bob
