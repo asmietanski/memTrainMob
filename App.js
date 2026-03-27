@@ -29,7 +29,7 @@ export default function App() {
       setDb(database);
 
       // Always scan on launch to pick up new directories
-      setInitStatus('Scanning /sdcard/memTrain/ for images...');
+      setInitStatus('Scanning app directory for images...');
       
       try {
         const result = await scanExternalImages(database);

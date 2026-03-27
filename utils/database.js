@@ -302,23 +302,30 @@ export function getImageUri(imagePath) {
 }
 
 /**
- * Scan external storage for images and populate database
- * Path: /sdcard/memTrain/CategoryName/*.jpg
+ * Scan app's document directory for images and populate database
+ * Path: {documentDirectory}/memTrain/CategoryName/*.jpg
  */
 export async function scanExternalImages(db) {
-    // Use direct path to external storage - scan root memTrain directory
-    const externalDir = 'file:///sdcard/memTrain/';
+    // Use app's document directory - always accessible
+    const baseDir = FileSystem.documentDirectory + 'memTrain/';
     
     try {
+        // Create memTrain directory if it doesn't exist
+        const dirInfo = await FileSystem.getInfoAsync(baseDir);
+        if (!dirInfo.exists) {
+            await FileSystem.makeDirectoryAsync(baseDir, { intermediates: true });
+            return { scanned: 0, added: 0, skipped: 0 };
+        }
+        
         let scanned = 0;
         let added = 0;
         let skipped = 0;
         
         // Get list of items in memTrain directory
-        const items = await FileSystem.readDirectoryAsync(externalDir);
+        const items = await FileSystem.readDirectoryAsync(baseDir);
         
         for (const item of items) {
-            const itemPath = externalDir + item + '/';
+            const itemPath = baseDir + item + '/';
             
             // Try to read as directory - if it fails, skip
             let files;
@@ -384,9 +391,8 @@ export async function scanExternalImages(db) {
  * Get external storage path for images
  */
 export function getExternalImagesPath() {
-    // On Android: /storage/emulated/0/memTrain/
-    // This is accessible as /sdcard/memTrain/
-    return '/sdcard/memTrain/';
+    // App's document directory
+    return FileSystem.documentDirectory + 'memTrain/';
 }
 
 // Made with Bob
