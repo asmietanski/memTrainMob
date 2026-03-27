@@ -6,8 +6,9 @@ import {
   TouchableOpacity,
   ScrollView,
   RefreshControl,
+  Alert,
 } from 'react-native';
-import { getStatistics, getCategories } from '../utils/database';
+import { getStatistics, getCategories, scanExternalImages, getExternalImagesPath } from '../utils/database';
 
 export default function HomeScreen({ navigation, db }) {
   const [stats, setStats] = useState(null);
@@ -33,6 +34,35 @@ export default function HomeScreen({ navigation, db }) {
     setRefreshing(true);
     await loadData();
     setRefreshing(false);
+  };
+
+  const handleScanImages = async () => {
+    try {
+      Alert.alert(
+        'Scan External Images',
+        `This will scan for images in:\n${getExternalImagesPath()}\n\nMake sure you have copied your image folders there.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Scan Now',
+            onPress: async () => {
+              try {
+                const result = await scanExternalImages(db);
+                Alert.alert(
+                  'Scan Complete',
+                  `Scanned: ${result.scanned} images\nAdded: ${result.added} new items\nSkipped: ${result.skipped} (already exist or deleted)`,
+                  [{ text: 'OK', onPress: () => loadData() }]
+                );
+              } catch (error) {
+                Alert.alert('Error', `Failed to scan images: ${error.message}`);
+              }
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      Alert.alert('Error', error.message);
+    }
   };
 
   return (
@@ -91,6 +121,13 @@ export default function HomeScreen({ navigation, db }) {
           onPress={() => navigation.navigate('Category')}
         >
           <Text style={styles.actionButtonText}>📚 Start Studying</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, styles.scanButton]}
+          onPress={handleScanImages}
+        >
+          <Text style={styles.actionButtonText}>🔍 Scan External Images</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -222,6 +259,9 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     backgroundColor: '#4CAF50',
+  },
+  scanButton: {
+    backgroundColor: '#FF9800',
   },
   actionButtonText: {
     fontSize: 18,

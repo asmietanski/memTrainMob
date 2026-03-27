@@ -287,12 +287,107 @@ export async function copyImageToAppDirectory(sourceUri, category, filename) {
 
 /**
  * Get image URI for display
+ * Now supports external storage paths
  */
 export function getImageUri(imagePath) {
     if (imagePath.startsWith('file://')) {
         return imagePath;
     }
+    // Check if it's an absolute path (external storage)
+    if (imagePath.startsWith('/')) {
+        return 'file://' + imagePath;
+    }
+    // Fallback to document directory
     return FileSystem.documentDirectory + 'images/' + imagePath;
+}
+
+/**
+ * Scan external storage for images and populate database
+ * Path: /sdcard/memTrain/images/CategoryName/*.jpg
+ */
+export async function scanExternalImages(db) {
+    const externalDir = FileSystem.documentDirectory.replace('file://', '').replace(/\/Documents.*/, '') + '/memTrain/images/';
+    
+    try {
+        // Check if directory exists
+        const dirInfo = await FileSystem.getInfoAsync(externalDir);
+        if (!dirInfo.exists) {
+            console.log('External images directory not found:', externalDir);
+            return { scanned: 0, added: 0, skipped: 0 };
+        }
+        
+        let scanned = 0;
+        let added = 0;
+        let skipped = 0;
+        
+        // Get list of categories (folders)
+        const categories = await FileSystem.readDirectoryAsync(externalDir);
+        
+        for (const category of categories) {
+            const categoryPath = externalDir + category + '/';
+            
+            // Check if it's a directory
+            const catInfo = await FileSystem.getInfoAsync(categoryPath);
+            if (!catInfo.isDirectory) continue;
+            
+            // Get images in category
+            const files = await FileSystem.readDirectoryAsync(categoryPath);
+            
+            for (const file of files) {
+                // Only process image files
+                if (!file.match(/\.(jpg|jpeg|png|gif)$/i)) continue;
+                
+                scanned++;
+                const imagePath = categoryPath + file;
+                const name = file.replace(/\.(jpg|jpeg|png|gif)$/i, '').replace(/_/g, ' ');
+                
+                // Check if already deleted
+                const isDeleted = await isItemDeleted(db, imagePath);
+                if (isDeleted) {
+                    skipped++;
+                    continue;
+                }
+                
+                // Check if already exists
+                const existing = await db.getFirstAsync(
+                    'SELECT id FROM items WHERE image_path = ?',
+                    [imagePath]
+                );
+                
+                if (existing) {
+                    skipped++;
+                    continue;
+                }
+                
+                // Add to database
+                try {
+                    await addItem(db, {
+                        imagePath: imagePath,
+                        name: name,
+                        category: category
+                    });
+                    added++;
+                } catch (error) {
+                    console.error('Error adding item:', name, error);
+                    skipped++;
+                }
+            }
+        }
+        
+        return { scanned, added, skipped };
+    } catch (error) {
+        console.error('Error scanning external images:', error);
+        throw error;
+    }
+}
+
+/**
+ * Get external storage path for images
+ */
+export function getExternalImagesPath() {
+    // On Android: /storage/emulated/0/memTrain/images/
+    // This is accessible as /sdcard/memTrain/images/
+    return '/sdcard/memTrain/images/';
 }
 
 // Made with Bob
