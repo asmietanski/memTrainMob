@@ -306,7 +306,8 @@ export function getImageUri(imagePath) {
  * Path: /sdcard/memTrain/images/CategoryName/*.jpg
  */
 export async function scanExternalImages(db) {
-    const externalDir = FileSystem.documentDirectory.replace('file://', '').replace(/\/Documents.*/, '') + '/memTrain/images/';
+    // Use direct path to external storage
+    const externalDir = 'file:///sdcard/memTrain/images/';
     
     try {
         // Check if directory exists
