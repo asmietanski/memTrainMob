@@ -42,7 +42,7 @@ export default function App() {
         }
       } catch (scanError) {
         console.error('Auto-scan failed:', scanError);
-        setInitStatus('Scan failed, but app will continue...');
+        setInitStatus(`Scan failed: ${scanError.message}\nApp will continue without external images.`);
       }
       
       // Small delay to show status
