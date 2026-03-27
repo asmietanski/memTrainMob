@@ -5,7 +5,6 @@
 
 import * as SQLite from 'expo-sqlite';
 import * as FileSystem from 'expo-file-system';
-import { StorageAccessFramework } from 'expo-file-system';
 
 const DB_NAME = 'memtrain.db';
 

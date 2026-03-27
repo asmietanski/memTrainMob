@@ -27,11 +27,26 @@ export default function App() {
       setInitStatus('Opening database...');
       const database = await openDatabase();
       setDb(database);
+
+      // Always scan on launch to pick up new directories
+      setInitStatus('Scanning /sdcard/memTrain/ for images...');
       
-      setInitStatus('Ready!');
+      try {
+        const result = await scanExternalImages(database);
+        console.log('Auto-scan complete:', result);
+        
+        if (result.added > 0) {
+          setInitStatus(`Found ${result.added} new items!`);
+        } else {
+          setInitStatus('All images already in database');
+        }
+      } catch (scanError) {
+        console.error('Auto-scan failed:', scanError);
+        setInitStatus(`Scan failed: ${scanError.message}\nApp will continue without external images.`);
+      }
       
       // Small delay to show status
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 1000));
       setIsInitializing(false);
     } catch (error) {
       console.error('Failed to initialize app:', error);
