@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ActivityIndicator, StyleSheet, Platform } from 'react-native';
+import * as MediaLibrary from 'expo-media-library';
 import { openDatabase, scanExternalImages } from './utils/database';
 import HomeScreen from './screens/HomeScreen';
 import CategoryScreen from './screens/CategoryScreen';
@@ -23,13 +24,26 @@ export default function App() {
 
   const initializeApp = async () => {
     try {
+      // Request storage permissions on Android
+      if (Platform.OS === 'android') {
+        setInitStatus('Requesting storage permissions...');
+        const { status } = await MediaLibrary.requestPermissionsAsync();
+        
+        if (status !== 'granted') {
+          setInitStatus('Storage permission denied. App needs access to Documents folder.');
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          setIsInitializing(false);
+          return;
+        }
+      }
+
       // Open database
       setInitStatus('Opening database...');
       const database = await openDatabase();
       setDb(database);
 
       // Always scan on launch to pick up new directories
-      setInitStatus('Scanning app directory for images...');
+      setInitStatus('Scanning Documents/memTrain for images...');
       
       try {
         const result = await scanExternalImages(database);
@@ -50,7 +64,7 @@ export default function App() {
       }
       
       // Small delay to show status
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 1500));
       setIsInitializing(false);
     } catch (error) {
       console.error('Failed to initialize app:', error);
