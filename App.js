@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { openDatabase } from './utils/database';
+import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { openDatabase, scanExternalImages, getCategories } from './utils/database';
 import HomeScreen from './screens/HomeScreen';
 import CategoryScreen from './screens/CategoryScreen';
 import StudyScreen from './screens/StudyScreen';
@@ -13,22 +15,65 @@ const Stack = createStackNavigator();
 
 export default function App() {
   const [db, setDb] = useState(null);
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [initStatus, setInitStatus] = useState('Initializing database...');
 
   useEffect(() => {
-    initializeDatabase();
+    initializeApp();
   }, []);
 
-  const initializeDatabase = async () => {
+  const initializeApp = async () => {
     try {
+      // Open database
+      setInitStatus('Opening database...');
       const database = await openDatabase();
       setDb(database);
+
+      // Check if first launch
+      const hasScanned = await AsyncStorage.getItem('hasScannedImages');
+      
+      if (!hasScanned) {
+        // First launch - auto-scan external images
+        setInitStatus('First launch detected...');
+        setInitStatus('Scanning /sdcard/memTrain/ for images...');
+        
+        try {
+          const result = await scanExternalImages(database);
+          console.log('Auto-scan complete:', result);
+          
+          // Mark as scanned
+          await AsyncStorage.setItem('hasScannedImages', 'true');
+          
+          setInitStatus(`Scan complete! Added ${result.added} items from ${result.scanned} images.`);
+        } catch (scanError) {
+          console.error('Auto-scan failed:', scanError);
+          setInitStatus('Scan failed, but app will continue...');
+        }
+      }
+      
+      setIsInitializing(false);
     } catch (error) {
-      console.error('Failed to initialize database:', error);
+      console.error('Failed to initialize app:', error);
+      setInitStatus('Initialization failed: ' + error.message);
+      setIsInitializing(false);
     }
   };
 
+  if (isInitializing) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#2196F3" />
+        <Text style={styles.loadingText}>{initStatus}</Text>
+      </View>
+    );
+  }
+
   if (!db) {
-    return null; // Or a loading screen
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.errorText}>Failed to initialize database</Text>
+      </View>
+    );
   }
 
   return (
@@ -92,3 +137,25 @@ export default function App() {
 }
 
 // Made with Bob
+
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 20,
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#f44336',
+    textAlign: 'center',
+  },
+});
