@@ -15,10 +15,10 @@ export default function SettingsScreen({ db }) {
       // Show instructions
       Alert.alert(
         'Import Images',
-        'Select a folder containing category subdirectories with images.\n\nExample structure:\nDownloads/memTrain/\n  ├── Polish_male_film_actors/\n  │   ├── image_001.jpg\n  │   └── ...\n  └── Actors_250/\n      ├── image_001.jpg\n      └── ...',
+        'Select ANY image file from a category folder.\n\nThe app will automatically import ALL categories from the parent folder.\n\nExample: Select any .jpg from:\nDocuments/memTrain/Polish_male_film_actors/\n\nApp will import both:\n• Polish_male_film_actors/\n• Actors_250/',
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Select Folder', onPress: selectAndImportFolder }
+          { text: 'Select Image', onPress: selectAndImportFolder }
         ]
       );
     } catch (error) {
@@ -30,9 +30,9 @@ export default function SettingsScreen({ db }) {
     try {
       setIsImporting(true);
       
-      // Pick a directory
+      // Pick an image file
       const result = await DocumentPicker.getDocumentAsync({
-        type: '*/*',
+        type: 'image/*',
         copyToCacheDirectory: false,
       });
       
@@ -41,15 +41,12 @@ export default function SettingsScreen({ db }) {
         return;
       }
       
-      // Get the folder URI from the selected file
-      // User needs to select any file in the folder, we'll use its parent directory
+      // Get the selected file URI
       const fileUri = result.assets[0].uri;
-      const folderUri = fileUri.substring(0, fileUri.lastIndexOf('/'));
+      console.log('Selected file:', fileUri);
       
-      console.log('Selected folder:', folderUri);
-      
-      // Import images from the folder
-      const importResult = await importImagesFromFolder(db, folderUri);
+      // Import images from the parent folder structure
+      const importResult = await importImagesFromFolder(db, fileUri);
       
       setIsImporting(false);
       

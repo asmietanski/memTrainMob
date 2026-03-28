@@ -402,54 +402,53 @@ export async function scanExternalImages(db) {
 }
 
 /**
- * Import images from a selected folder into app's internal storage
- * Uses deprecated but working FileSystem APIs
+ * Import images from a selected file's parent directories into app's internal storage
+ * User selects any image file, we scan its parent directory for all categories
  * @param {object} db - Database connection
- * @param {string} sourceFolderUri - URI of the folder containing category subdirectories
+ * @param {string} selectedFileUri - URI of a selected image file
  * @returns {object} - Result with counts of imported, skipped, and failed items
  */
-export async function importImagesFromFolder(db, sourceFolderUri) {
+export async function importImagesFromFolder(db, selectedFileUri) {
     let imported = 0;
     let skipped = 0;
     let failed = 0;
     const errors = [];
     
     try {
-        console.log('Starting import from:', sourceFolderUri);
+        console.log('Selected file:', selectedFileUri);
         
-        // Ensure source folder exists
-        const folderInfo = await FileSystem.getInfoAsync(sourceFolderUri);
-        if (!folderInfo.exists) {
-            throw new Error('Selected folder does not exist');
-        }
+        // Extract the parent directory (should be a category folder)
+        const lastSlash = selectedFileUri.lastIndexOf('/');
+        const categoryFolderUri = selectedFileUri.substring(0, lastSlash);
+        const categoryName = categoryFolderUri.substring(categoryFolderUri.lastIndexOf('/') + 1);
         
-        // Read category directories from source folder
-        const items = await FileSystem.readDirectoryAsync(sourceFolderUri);
-        console.log('Found items in source folder:', items.length);
+        // Get the grandparent directory (should contain all category folders)
+        const secondLastSlash = categoryFolderUri.lastIndexOf('/');
+        const parentFolderUri = categoryFolderUri.substring(0, secondLastSlash);
+        
+        console.log('Category folder:', categoryFolderUri);
+        console.log('Category name:', categoryName);
+        console.log('Parent folder:', parentFolderUri);
+        
+        // Read all category directories from parent folder
+        const items = await FileSystem.readDirectoryAsync(parentFolderUri);
+        console.log('Found items in parent folder:', items.length);
         
         for (const item of items) {
-            const itemPath = sourceFolderUri + '/' + item;
+            const itemPath = parentFolderUri + '/' + item;
             
-            // Check if it's a directory
-            const itemInfo = await FileSystem.getInfoAsync(itemPath);
-            if (!itemInfo.isDirectory) {
-                console.log('Skipping non-directory:', item);
+            // Check if it's a directory by trying to read it
+            let files;
+            try {
+                files = await FileSystem.readDirectoryAsync(itemPath);
+            } catch (e) {
+                // Not a directory or can't read, skip
+                console.log('Skipping non-directory or unreadable:', item);
                 continue;
             }
             
             const category = item;
             console.log('Processing category:', category);
-            
-            // Read images from category directory
-            let files;
-            try {
-                files = await FileSystem.readDirectoryAsync(itemPath);
-            } catch (e) {
-                console.error('Cannot read category directory:', category, e);
-                errors.push(`Cannot read category: ${category}`);
-                continue;
-            }
-            
             console.log(`Found ${files.length} files in category ${category}`);
             
             // Process each image file
