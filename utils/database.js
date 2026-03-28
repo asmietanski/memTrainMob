@@ -287,17 +287,17 @@ export async function copyImageToAppDirectory(sourceUri, category, filename) {
 
 /**
  * Get image URI for display
- * Now supports external storage paths
+ * Handles both relative paths (from internal storage) and absolute paths (legacy)
  */
 export function getImageUri(imagePath) {
     if (imagePath.startsWith('file://')) {
         return imagePath;
     }
-    // Check if it's an absolute path (external storage)
+    // Check if it's an absolute path (legacy external storage)
     if (imagePath.startsWith('/')) {
         return 'file://' + imagePath;
     }
-    // Fallback to document directory
+    // Relative path - use document directory
     return FileSystem.documentDirectory + 'images/' + imagePath;
 }
 
@@ -398,6 +398,136 @@ export async function scanExternalImages(db) {
     } catch (error) {
         console.error('Error scanning external images:', error);
         return { scanned: 0, added: 0, skipped: 0, error: error.message };
+    }
+}
+
+/**
+ * Import images from a selected folder into app's internal storage
+ * Uses deprecated but working FileSystem APIs
+ * @param {object} db - Database connection
+ * @param {string} sourceFolderUri - URI of the folder containing category subdirectories
+ * @returns {object} - Result with counts of imported, skipped, and failed items
+ */
+export async function importImagesFromFolder(db, sourceFolderUri) {
+    let imported = 0;
+    let skipped = 0;
+    let failed = 0;
+    const errors = [];
+    
+    try {
+        console.log('Starting import from:', sourceFolderUri);
+        
+        // Ensure source folder exists
+        const folderInfo = await FileSystem.getInfoAsync(sourceFolderUri);
+        if (!folderInfo.exists) {
+            throw new Error('Selected folder does not exist');
+        }
+        
+        // Read category directories from source folder
+        const items = await FileSystem.readDirectoryAsync(sourceFolderUri);
+        console.log('Found items in source folder:', items.length);
+        
+        for (const item of items) {
+            const itemPath = sourceFolderUri + '/' + item;
+            
+            // Check if it's a directory
+            const itemInfo = await FileSystem.getInfoAsync(itemPath);
+            if (!itemInfo.isDirectory) {
+                console.log('Skipping non-directory:', item);
+                continue;
+            }
+            
+            const category = item;
+            console.log('Processing category:', category);
+            
+            // Read images from category directory
+            let files;
+            try {
+                files = await FileSystem.readDirectoryAsync(itemPath);
+            } catch (e) {
+                console.error('Cannot read category directory:', category, e);
+                errors.push(`Cannot read category: ${category}`);
+                continue;
+            }
+            
+            console.log(`Found ${files.length} files in category ${category}`);
+            
+            // Process each image file
+            for (const file of files) {
+                // Only process image files
+                if (!file.match(/\.(jpg|jpeg|png|gif)$/i)) {
+                    continue;
+                }
+                
+                const sourceImageUri = itemPath + '/' + file;
+                const name = file.replace(/\.(jpg|jpeg|png|gif)$/i, '').replace(/_/g, ' ');
+                
+                try {
+                    // Create destination path in app's internal storage
+                    const appImagesDir = FileSystem.documentDirectory + 'images/';
+                    const categoryDir = appImagesDir + category + '/';
+                    
+                    // Create directories if they don't exist
+                    await FileSystem.makeDirectoryAsync(appImagesDir, { intermediates: true });
+                    await FileSystem.makeDirectoryAsync(categoryDir, { intermediates: true });
+                    
+                    const destImageUri = categoryDir + file;
+                    const relativeImagePath = category + '/' + file;
+                    
+                    // Check if already deleted
+                    const isDeleted = await isItemDeleted(db, relativeImagePath);
+                    if (isDeleted) {
+                        skipped++;
+                        console.log('Skipping deleted item:', name);
+                        continue;
+                    }
+                    
+                    // Check if already exists in database
+                    const existing = await db.getFirstAsync(
+                        'SELECT id FROM items WHERE image_path = ?',
+                        [relativeImagePath]
+                    );
+                    
+                    if (existing) {
+                        skipped++;
+                        console.log('Skipping existing item:', name);
+                        continue;
+                    }
+                    
+                    // Copy image to app's internal storage
+                    await FileSystem.copyAsync({
+                        from: sourceImageUri,
+                        to: destImageUri
+                    });
+                    
+                    // Add to database
+                    await addItem(db, {
+                        imagePath: relativeImagePath,
+                        name: name,
+                        category: category
+                    });
+                    
+                    imported++;
+                    console.log('Imported:', name);
+                    
+                } catch (error) {
+                    console.error('Error importing image:', file, error);
+                    errors.push(`Failed to import ${file}: ${error.message}`);
+                    failed++;
+                }
+            }
+        }
+        
+        return {
+            imported,
+            skipped,
+            failed,
+            errors: errors.length > 0 ? errors : null
+        };
+        
+    } catch (error) {
+        console.error('Error during import:', error);
+        throw error;
     }
 }
 

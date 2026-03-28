@@ -1,13 +1,78 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import { importImagesFromFolder } from '../utils/database';
 
 export default function SettingsScreen({ db }) {
+  const [isImporting, setIsImporting] = useState(false);
+
   const handleExportData = () => {
     Alert.alert('Export Data', 'Export functionality coming soon!');
   };
 
-  const handleImportData = () => {
-    Alert.alert('Import Data', 'Import functionality coming soon!');
+  const handleImportData = async () => {
+    try {
+      // Show instructions
+      Alert.alert(
+        'Import Images',
+        'Select a folder containing category subdirectories with images.\n\nExample structure:\nDownloads/memTrain/\n  ├── Polish_male_film_actors/\n  │   ├── image_001.jpg\n  │   └── ...\n  └── Actors_250/\n      ├── image_001.jpg\n      └── ...',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Select Folder', onPress: selectAndImportFolder }
+        ]
+      );
+    } catch (error) {
+      Alert.alert('Error', error.message);
+    }
+  };
+
+  const selectAndImportFolder = async () => {
+    try {
+      setIsImporting(true);
+      
+      // Pick a directory
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: false,
+      });
+      
+      if (result.canceled) {
+        setIsImporting(false);
+        return;
+      }
+      
+      // Get the folder URI from the selected file
+      // User needs to select any file in the folder, we'll use its parent directory
+      const fileUri = result.assets[0].uri;
+      const folderUri = fileUri.substring(0, fileUri.lastIndexOf('/'));
+      
+      console.log('Selected folder:', folderUri);
+      
+      // Import images from the folder
+      const importResult = await importImagesFromFolder(db, folderUri);
+      
+      setIsImporting(false);
+      
+      // Show results
+      let message = `✅ Imported: ${importResult.imported}\n`;
+      message += `⏭️ Skipped: ${importResult.skipped}\n`;
+      if (importResult.failed > 0) {
+        message += `❌ Failed: ${importResult.failed}\n`;
+      }
+      if (importResult.errors) {
+        message += `\nErrors:\n${importResult.errors.slice(0, 3).join('\n')}`;
+        if (importResult.errors.length > 3) {
+          message += `\n... and ${importResult.errors.length - 3} more`;
+        }
+      }
+      
+      Alert.alert('Import Complete', message);
+      
+    } catch (error) {
+      setIsImporting(false);
+      console.error('Import error:', error);
+      Alert.alert('Import Failed', error.message);
+    }
   };
 
   const handleResetDatabase = () => {
@@ -32,8 +97,19 @@ export default function SettingsScreen({ db }) {
           <Text style={styles.buttonText}>📤 Export Data</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.button} onPress={handleImportData}>
-          <Text style={styles.buttonText}>📥 Import Data</Text>
+        <TouchableOpacity
+          style={[styles.button, isImporting && styles.disabledButton]}
+          onPress={handleImportData}
+          disabled={isImporting}
+        >
+          {isImporting ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator color="#fff" />
+              <Text style={[styles.buttonText, styles.loadingText]}>Importing...</Text>
+            </View>
+          ) : (
+            <Text style={styles.buttonText}>📥 Import Images from Folder</Text>
+          )}
         </TouchableOpacity>
 
         <TouchableOpacity 
@@ -94,6 +170,17 @@ const styles = StyleSheet.create({
   },
   dangerText: {
     color: '#fff',
+  },
+  disabledButton: {
+    backgroundColor: '#ccc',
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginLeft: 10,
   },
   infoText: {
     fontSize: 14,

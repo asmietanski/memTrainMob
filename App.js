@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { View, Text, ActivityIndicator, StyleSheet, Platform } from 'react-native';
-import * as MediaLibrary from 'expo-media-library';
-import { openDatabase, scanExternalImages } from './utils/database';
+import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { openDatabase } from './utils/database';
 import HomeScreen from './screens/HomeScreen';
 import CategoryScreen from './screens/CategoryScreen';
 import StudyScreen from './screens/StudyScreen';
@@ -24,51 +23,17 @@ export default function App() {
 
   const initializeApp = async () => {
     try {
-      // Request storage permissions on Android
-      if (Platform.OS === 'android') {
-        setInitStatus('Requesting storage permissions...');
-        const { status } = await MediaLibrary.requestPermissionsAsync();
-        
-        if (status !== 'granted') {
-          setInitStatus('Storage permission denied. App needs access to Documents folder.');
-          await new Promise(resolve => setTimeout(resolve, 3000));
-          setIsInitializing(false);
-          return;
-        }
-      }
-
-      // Open database
-      setInitStatus('Opening database...');
+      setInitStatus('Initializing database...');
       const database = await openDatabase();
       setDb(database);
-
-      // Always scan on launch to pick up new directories
-      setInitStatus('Scanning Documents/memTrain for images...');
       
-      try {
-        const result = await scanExternalImages(database);
-        console.log('Auto-scan complete:', result);
-        
-        if (result.error) {
-          setInitStatus(result.error);
-        } else if (result.added > 0) {
-          setInitStatus(`Found ${result.added} new items!`);
-        } else if (result.scanned === 0) {
-          setInitStatus('No images found. Create folder:\n/storage/emulated/0/Documents/memTrain/');
-        } else {
-          setInitStatus('All images already in database');
-        }
-      } catch (scanError) {
-        console.error('Auto-scan failed:', scanError);
-        setInitStatus(`Scan failed: ${scanError.message}\nApp will continue without external images.`);
-      }
-      
-      // Small delay to show status
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      setInitStatus('Ready!');
+      await new Promise(resolve => setTimeout(resolve, 500));
       setIsInitializing(false);
     } catch (error) {
       console.error('Failed to initialize app:', error);
       setInitStatus('Initialization failed: ' + error.message);
+      await new Promise(resolve => setTimeout(resolve, 2000));
       setIsInitializing(false);
     }
   };
