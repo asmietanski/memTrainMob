@@ -423,8 +423,13 @@ export async function importImagesFromZip(db, zipFileUri) {
             encoding: FileSystem.EncodingType.Base64
         });
         
-        // Load ZIP file
-        const zip = await JSZip.loadAsync(zipBase64, { base64: true });
+        console.log('ZIP file read, size:', zipBase64.length);
+        
+        // Load ZIP file - use proper base64 loading for React Native
+        const zip = await JSZip.loadAsync(zipBase64, {
+            base64: true,
+            createFolders: true
+        });
         
         console.log('ZIP loaded, processing files...');
         
@@ -500,8 +505,16 @@ export async function importImagesFromZip(db, zipFileUri) {
                     continue;
                 }
                 
-                // Extract image data as base64
-                const imageBase64 = await zipEntry.async('base64');
+                // Extract image data as Uint8Array then convert to base64
+                const imageArray = await zipEntry.async('uint8array');
+                
+                // Convert Uint8Array to base64 string
+                let binary = '';
+                const len = imageArray.byteLength;
+                for (let i = 0; i < len; i++) {
+                    binary += String.fromCharCode(imageArray[i]);
+                }
+                const imageBase64 = btoa(binary);
                 
                 // Write image to app's internal storage
                 await FileSystem.writeAsStringAsync(destImageUri, imageBase64, {
