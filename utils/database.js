@@ -402,118 +402,114 @@ export async function scanExternalImages(db) {
 }
 
 /**
- * Import images from a selected file's parent directories into app's internal storage
- * User selects any image file, we scan its parent directory for all categories
+ * Import images from a ZIP file into app's internal storage
+ * Avoids deprecated directory reading APIs completely
  * @param {object} db - Database connection
- * @param {string} selectedFileUri - URI of a selected image file
+ * @param {string} zipFileUri - URI of the selected ZIP file
  * @returns {object} - Result with counts of imported, skipped, and failed items
  */
-export async function importImagesFromFolder(db, selectedFileUri) {
+export async function importImagesFromZip(db, zipFileUri) {
+    const JSZip = require('jszip');
     let imported = 0;
     let skipped = 0;
     let failed = 0;
     const errors = [];
     
     try {
-        console.log('Selected file:', selectedFileUri);
+        console.log('Reading ZIP file:', zipFileUri);
         
-        // Extract the parent directory (should be a category folder)
-        const lastSlash = selectedFileUri.lastIndexOf('/');
-        const categoryFolderUri = selectedFileUri.substring(0, lastSlash);
-        const categoryName = categoryFolderUri.substring(categoryFolderUri.lastIndexOf('/') + 1);
+        // Read the ZIP file as base64
+        const zipBase64 = await FileSystem.readAsStringAsync(zipFileUri, {
+            encoding: FileSystem.EncodingType.Base64
+        });
         
-        // Get the grandparent directory (should contain all category folders)
-        const secondLastSlash = categoryFolderUri.lastIndexOf('/');
-        const parentFolderUri = categoryFolderUri.substring(0, secondLastSlash);
+        // Load ZIP file
+        const zip = await JSZip.loadAsync(zipBase64, { base64: true });
         
-        console.log('Category folder:', categoryFolderUri);
-        console.log('Category name:', categoryName);
-        console.log('Parent folder:', parentFolderUri);
+        console.log('ZIP loaded, processing files...');
         
-        // Read all category directories from parent folder
-        const items = await FileSystem.readDirectoryAsync(parentFolderUri);
-        console.log('Found items in parent folder:', items.length);
+        // Process each file in the ZIP
+        const files = Object.keys(zip.files);
+        console.log(`Found ${files.length} entries in ZIP`);
         
-        for (const item of items) {
-            const itemPath = parentFolderUri + '/' + item;
+        for (const filePath of files) {
+            const zipEntry = zip.files[filePath];
             
-            // Check if it's a directory by trying to read it
-            let files;
-            try {
-                files = await FileSystem.readDirectoryAsync(itemPath);
-            } catch (e) {
-                // Not a directory or can't read, skip
-                console.log('Skipping non-directory or unreadable:', item);
+            // Skip directories
+            if (zipEntry.dir) continue;
+            
+            // Only process image files
+            if (!filePath.match(/\.(jpg|jpeg|png|gif)$/i)) continue;
+            
+            // Extract category and filename from path
+            // Expected format: CategoryName/image.jpg or memTrain/CategoryName/image.jpg
+            const pathParts = filePath.split('/').filter(p => p.length > 0);
+            
+            if (pathParts.length < 2) {
+                console.log('Skipping file with invalid path:', filePath);
                 continue;
             }
             
-            const category = item;
-            console.log('Processing category:', category);
-            console.log(`Found ${files.length} files in category ${category}`);
+            // Get category (second-to-last part) and filename (last part)
+            const filename = pathParts[pathParts.length - 1];
+            const category = pathParts[pathParts.length - 2];
             
-            // Process each image file
-            for (const file of files) {
-                // Only process image files
-                if (!file.match(/\.(jpg|jpeg|png|gif)$/i)) {
+            const name = filename.replace(/\.(jpg|jpeg|png|gif)$/i, '').replace(/_/g, ' ');
+            
+            try {
+                // Create destination path in app's internal storage
+                const appImagesDir = FileSystem.documentDirectory + 'images/';
+                const categoryDir = appImagesDir + category + '/';
+                
+                // Create directories if they don't exist
+                await FileSystem.makeDirectoryAsync(appImagesDir, { intermediates: true });
+                await FileSystem.makeDirectoryAsync(categoryDir, { intermediates: true });
+                
+                const destImageUri = categoryDir + filename;
+                const relativeImagePath = category + '/' + filename;
+                
+                // Check if already deleted
+                const isDeleted = await isItemDeleted(db, relativeImagePath);
+                if (isDeleted) {
+                    skipped++;
+                    console.log('Skipping deleted item:', name);
                     continue;
                 }
                 
-                const sourceImageUri = itemPath + '/' + file;
-                const name = file.replace(/\.(jpg|jpeg|png|gif)$/i, '').replace(/_/g, ' ');
+                // Check if already exists in database
+                const existing = await db.getFirstAsync(
+                    'SELECT id FROM items WHERE image_path = ?',
+                    [relativeImagePath]
+                );
                 
-                try {
-                    // Create destination path in app's internal storage
-                    const appImagesDir = FileSystem.documentDirectory + 'images/';
-                    const categoryDir = appImagesDir + category + '/';
-                    
-                    // Create directories if they don't exist
-                    await FileSystem.makeDirectoryAsync(appImagesDir, { intermediates: true });
-                    await FileSystem.makeDirectoryAsync(categoryDir, { intermediates: true });
-                    
-                    const destImageUri = categoryDir + file;
-                    const relativeImagePath = category + '/' + file;
-                    
-                    // Check if already deleted
-                    const isDeleted = await isItemDeleted(db, relativeImagePath);
-                    if (isDeleted) {
-                        skipped++;
-                        console.log('Skipping deleted item:', name);
-                        continue;
-                    }
-                    
-                    // Check if already exists in database
-                    const existing = await db.getFirstAsync(
-                        'SELECT id FROM items WHERE image_path = ?',
-                        [relativeImagePath]
-                    );
-                    
-                    if (existing) {
-                        skipped++;
-                        console.log('Skipping existing item:', name);
-                        continue;
-                    }
-                    
-                    // Copy image to app's internal storage
-                    await FileSystem.copyAsync({
-                        from: sourceImageUri,
-                        to: destImageUri
-                    });
-                    
-                    // Add to database
-                    await addItem(db, {
-                        imagePath: relativeImagePath,
-                        name: name,
-                        category: category
-                    });
-                    
-                    imported++;
-                    console.log('Imported:', name);
-                    
-                } catch (error) {
-                    console.error('Error importing image:', file, error);
-                    errors.push(`Failed to import ${file}: ${error.message}`);
-                    failed++;
+                if (existing) {
+                    skipped++;
+                    console.log('Skipping existing item:', name);
+                    continue;
                 }
+                
+                // Extract image data as base64
+                const imageBase64 = await zipEntry.async('base64');
+                
+                // Write image to app's internal storage
+                await FileSystem.writeAsStringAsync(destImageUri, imageBase64, {
+                    encoding: FileSystem.EncodingType.Base64
+                });
+                
+                // Add to database
+                await addItem(db, {
+                    imagePath: relativeImagePath,
+                    name: name,
+                    category: category
+                });
+                
+                imported++;
+                console.log('Imported:', name);
+                
+            } catch (error) {
+                console.error('Error importing image:', filename, error);
+                errors.push(`Failed to import ${filename}: ${error.message}`);
+                failed++;
             }
         }
         
@@ -525,7 +521,7 @@ export async function importImagesFromFolder(db, selectedFileUri) {
         };
         
     } catch (error) {
-        console.error('Error during import:', error);
+        console.error('Error during ZIP import:', error);
         throw error;
     }
 }

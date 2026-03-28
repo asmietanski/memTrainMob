@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
-import { importImagesFromFolder } from '../utils/database';
+import { importImagesFromZip } from '../utils/database';
 
 export default function SettingsScreen({ db }) {
   const [isImporting, setIsImporting] = useState(false);
@@ -14,11 +14,11 @@ export default function SettingsScreen({ db }) {
     try {
       // Show instructions
       Alert.alert(
-        'Import Images',
-        'Select ANY image file from a category folder.\n\nThe app will automatically import ALL categories from the parent folder.\n\nExample: Select any .jpg from:\nDocuments/memTrain/Polish_male_film_actors/\n\nApp will import both:\n• Polish_male_film_actors/\n• Actors_250/',
+        'Import Images from ZIP',
+        'Create a ZIP file with this structure:\n\nmemTrain.zip\n├── Polish_male_film_actors/\n│   ├── image_001.jpg\n│   └── ...\n└── Actors_250/\n    ├── image_001.jpg\n    └── ...\n\nThen select the ZIP file to import all images.',
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Select Image', onPress: selectAndImportFolder }
+          { text: 'Select ZIP', onPress: selectAndImportZip }
         ]
       );
     } catch (error) {
@@ -26,14 +26,14 @@ export default function SettingsScreen({ db }) {
     }
   };
 
-  const selectAndImportFolder = async () => {
+  const selectAndImportZip = async () => {
     try {
       setIsImporting(true);
       
-      // Pick an image file
+      // Pick a ZIP file
       const result = await DocumentPicker.getDocumentAsync({
-        type: 'image/*',
-        copyToCacheDirectory: false,
+        type: 'application/zip',
+        copyToCacheDirectory: true,
       });
       
       if (result.canceled) {
@@ -41,12 +41,12 @@ export default function SettingsScreen({ db }) {
         return;
       }
       
-      // Get the selected file URI
-      const fileUri = result.assets[0].uri;
-      console.log('Selected file:', fileUri);
+      // Get the selected ZIP file URI
+      const zipUri = result.assets[0].uri;
+      console.log('Selected ZIP:', zipUri);
       
-      // Import images from the parent folder structure
-      const importResult = await importImagesFromFolder(db, fileUri);
+      // Import images from the ZIP file
+      const importResult = await importImagesFromZip(db, zipUri);
       
       setIsImporting(false);
       
@@ -105,7 +105,7 @@ export default function SettingsScreen({ db }) {
               <Text style={[styles.buttonText, styles.loadingText]}>Importing...</Text>
             </View>
           ) : (
-            <Text style={styles.buttonText}>📥 Import Images from Folder</Text>
+            <Text style={styles.buttonText}>📥 Import Images from ZIP</Text>
           )}
         </TouchableOpacity>
 
