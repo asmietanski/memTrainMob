@@ -442,17 +442,29 @@ export async function importImagesFromZip(db, zipFileUri) {
             if (!filePath.match(/\.(jpg|jpeg|png|gif)$/i)) continue;
             
             // Extract category and filename from path
-            // Expected format: CategoryName/image.jpg or memTrain/CategoryName/image.jpg
+            // Supports multiple formats:
+            // 1. CategoryName/image.jpg (single category in ZIP)
+            // 2. ParentFolder/CategoryName/image.jpg (multiple categories)
+            // 3. image.jpg (no subdirectory - use ZIP filename as category)
             const pathParts = filePath.split('/').filter(p => p.length > 0);
             
-            if (pathParts.length < 2) {
-                console.log('Skipping file with invalid path:', filePath);
-                continue;
-            }
+            let filename, category;
             
-            // Get category (second-to-last part) and filename (last part)
-            const filename = pathParts[pathParts.length - 1];
-            const category = pathParts[pathParts.length - 2];
+            if (pathParts.length === 1) {
+                // Direct file in ZIP root - use ZIP filename (without .zip) as category
+                filename = pathParts[0];
+                category = 'Imported';  // Default category name
+                console.log('File in ZIP root, using default category:', category);
+            } else if (pathParts.length === 2) {
+                // CategoryName/image.jpg - use first part as category
+                category = pathParts[0];
+                filename = pathParts[1];
+            } else {
+                // Multiple levels - use second-to-last as category
+                // e.g., memTrain/CategoryName/image.jpg -> CategoryName
+                filename = pathParts[pathParts.length - 1];
+                category = pathParts[pathParts.length - 2];
+            }
             
             const name = filename.replace(/\.(jpg|jpeg|png|gif)$/i, '').replace(/_/g, ' ');
             

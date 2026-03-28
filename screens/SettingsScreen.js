@@ -15,7 +15,7 @@ export default function SettingsScreen({ db }) {
       // Show instructions
       Alert.alert(
         'Import Images from ZIP',
-        'Create a ZIP file with this structure:\n\nmemTrain.zip\n├── Polish_male_film_actors/\n│   ├── image_001.jpg\n│   └── ...\n└── Actors_250/\n    ├── image_001.jpg\n    └── ...\n\nThen select the ZIP file to import all images.',
+        'Create a ZIP file with your images:\n\n✅ Single category:\nCountries.zip\n└── Countries_in_Europe/\n    ├── image_001.jpg\n    └── ...\n\n✅ Multiple categories:\nmemTrain.zip\n├── Category1/\n└── Category2/\n\nSelect the ZIP to import.',
         [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Select ZIP', onPress: selectAndImportZip }
