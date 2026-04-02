@@ -89,7 +89,7 @@ export default function HomeScreen({ navigation, db }) {
         
         <TouchableOpacity
           style={[styles.actionButton, styles.primaryButton]}
-          onPress={() => navigation.navigate('Category')}
+          onPress={() => navigation.navigate('Categories')}
         >
           <Text style={styles.actionButtonText}>📚 Start Studying</Text>
         </TouchableOpacity>
@@ -123,7 +123,7 @@ export default function HomeScreen({ navigation, db }) {
             <TouchableOpacity
               key={index}
               style={styles.categoryItem}
-              onPress={() => navigation.navigate('Category', { selectedCategory: category })}
+              onPress={() => navigation.navigate('Study', { category: category })}
             >
               <Text style={styles.categoryText}>{category}</Text>
               <Text style={styles.categoryArrow}>→</Text>

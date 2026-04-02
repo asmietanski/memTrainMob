@@ -4,7 +4,9 @@
  */
 
 import * as SQLite from 'expo-sqlite';
-import * as FileSystem from 'expo-file-system';
+import { Paths, Directory, File } from 'expo-file-system';
+import { makeDirectoryAsync, writeAsStringAsync } from 'expo-file-system/legacy';
+import { Buffer } from 'buffer';
 
 const DB_NAME = 'memtrain.db';
 
@@ -265,24 +267,40 @@ export async function importItemsFromJSON(db, items) {
 
 /**
  * Copy image file to app's document directory
+ * Uses NEW FileSystem API (File and Directory classes)
  */
 export async function copyImageToAppDirectory(sourceUri, category, filename) {
-    const appDir = FileSystem.documentDirectory + 'images/';
-    const categoryDir = appDir + category + '/';
+    // Create directories using new Paths API
+    const imagesDir = new Directory(Paths.document, 'images');
     
-    // Create directories if they don't exist
-    await FileSystem.makeDirectoryAsync(appDir, { intermediates: true });
-    await FileSystem.makeDirectoryAsync(categoryDir, { intermediates: true });
+    // Ensure images directory exists - use try-catch as create() may fail if exists
+    try {
+        await imagesDir.create();
+    } catch (error) {
+        // Directory likely already exists, ignore error
+        if (!error.message?.includes('already exists')) {
+            throw error;
+        }
+    }
     
-    const destUri = categoryDir + filename;
+    const categoryDir = new Directory(imagesDir, category);
     
-    // Copy file
-    await FileSystem.copyAsync({
-        from: sourceUri,
-        to: destUri
-    });
+    // Ensure category directory exists
+    try {
+        await categoryDir.create();
+    } catch (error) {
+        // Directory likely already exists, ignore error
+        if (!error.message?.includes('already exists')) {
+            throw error;
+        }
+    }
     
-    return destUri;
+    // Copy file using NEW API
+    const sourceFile = new File(sourceUri);
+    const destFile = new File(categoryDir, filename);
+    await sourceFile.copy(destFile);
+    
+    return destFile.uri;
 }
 
 /**
@@ -297,8 +315,10 @@ export function getImageUri(imagePath) {
     if (imagePath.startsWith('/')) {
         return 'file://' + imagePath;
     }
-    // Relative path - use document directory
-    return FileSystem.documentDirectory + 'images/' + imagePath;
+    // Relative path - use Paths.document
+    const imagesDir = new Directory(Paths.document, 'images');
+    const file = new File(imagesDir, imagePath);
+    return file.uri;
 }
 
 /**
@@ -315,7 +335,7 @@ export async function scanExternalImages(db) {
         let skipped = 0;
         
         // Try to access the directory using new File API
-        const baseDir = new FileSystem.Directory(basePath);
+        const baseDir = new Directory(basePath);
         
         // Check if directory exists
         let exists = false;
@@ -339,7 +359,7 @@ export async function scanExternalImages(db) {
             if (!item.isDirectory) continue;
             
             const category = item.name;
-            const categoryDir = new FileSystem.Directory(basePath + category + '/');
+            const categoryDir = new Directory(basePath + category + '/');
             
             // List files in category directory
             let files;
@@ -403,7 +423,7 @@ export async function scanExternalImages(db) {
 
 /**
  * Import images from a ZIP file into app's internal storage
- * Avoids deprecated directory reading APIs completely
+ * Uses NEW FileSystem API (File and Directory classes) - NOT deprecated methods
  * @param {object} db - Database connection
  * @param {string} zipFileUri - URI of the selected ZIP file
  * @returns {object} - Result with counts of imported, skipped, and failed items
@@ -418,24 +438,50 @@ export async function importImagesFromZip(db, zipFileUri) {
     try {
         console.log('Reading ZIP file:', zipFileUri);
         
-        // Read the ZIP file as base64
-        const zipBase64 = await FileSystem.readAsStringAsync(zipFileUri, {
-            encoding: FileSystem.EncodingType.Base64
-        });
+        // Read the ZIP file using NEW File API
+        const zipFile = new File(zipFileUri);
+        const zipBytes = await zipFile.bytes();
         
-        console.log('ZIP file read, size:', zipBase64.length);
+        console.log('ZIP file read');
         
-        // Load ZIP file - use proper base64 loading for React Native
-        const zip = await JSZip.loadAsync(zipBase64, {
-            base64: true,
-            createFolders: true
-        });
+        // Load ZIP file from bytes
+        const zip = await JSZip.loadAsync(zipBytes);
         
         console.log('ZIP loaded, processing files...');
         
-        // Process each file in the ZIP
+        // First, look for image_mapping.json files in the ZIP
+        const imageMappings = {};
         const files = Object.keys(zip.files);
         console.log(`Found ${files.length} entries in ZIP`);
+        
+        // Extract all image_mapping.json files
+        for (const filePath of files) {
+            const zipEntry = zip.files[filePath];
+            if (zipEntry.dir) continue;
+            
+            if (filePath.endsWith('image_mapping.json')) {
+                try {
+                    const jsonContent = await zipEntry.async('text');
+                    const mapping = JSON.parse(jsonContent);
+                    
+                    // Determine the category from the path
+                    const pathParts = filePath.split('/').filter(p => p.length > 0);
+                    let category;
+                    if (pathParts.length === 1) {
+                        category = 'Imported';
+                    } else if (pathParts.length === 2) {
+                        category = pathParts[0];
+                    } else {
+                        category = pathParts[pathParts.length - 2];
+                    }
+                    
+                    imageMappings[category] = mapping;
+                    console.log(`Found image_mapping.json for category: ${category}`);
+                } catch (error) {
+                    console.error('Error parsing image_mapping.json:', error);
+                }
+            }
+        }
         
         for (const filePath of files) {
             const zipEntry = zip.files[filePath];
@@ -471,18 +517,45 @@ export async function importImagesFromZip(db, zipFileUri) {
                 category = pathParts[pathParts.length - 2];
             }
             
-            const name = filename.replace(/\.(jpg|jpeg|png|gif)$/i, '').replace(/_/g, ' ');
+            // Use image mapping if available, otherwise use filename
+            let name;
+            if (imageMappings[category] && imageMappings[category][filename]) {
+                name = imageMappings[category][filename];
+                console.log(`Using mapped name for ${filename}: ${name}`);
+            } else {
+                // Fallback to filename-based name
+                name = filename.replace(/\.(jpg|jpeg|png|gif)$/i, '').replace(/_/g, ' ');
+                console.log(`No mapping found for ${filename}, using filename-based name: ${name}`);
+            }
             
             try {
-                // Create destination path in app's internal storage
-                const appImagesDir = FileSystem.documentDirectory + 'images/';
-                const categoryDir = appImagesDir + category + '/';
+                // Create destination path in app's internal storage using new Paths API
+                const imagesDir = new Directory(Paths.document, 'images');
                 
-                // Create directories if they don't exist
-                await FileSystem.makeDirectoryAsync(appImagesDir, { intermediates: true });
-                await FileSystem.makeDirectoryAsync(categoryDir, { intermediates: true });
+                // Ensure images directory exists - use try-catch as create() may fail if exists
+                try {
+                    await imagesDir.create();
+                } catch (createError) {
+                    // Directory likely already exists, ignore error
+                    if (!createError.message?.includes('already exists')) {
+                        throw createError;
+                    }
+                }
                 
-                const destImageUri = categoryDir + filename;
+                const categoryDir = new Directory(imagesDir, category);
+                
+                // Ensure category directory exists
+                try {
+                    await categoryDir.create();
+                } catch (createError) {
+                    // Directory likely already exists, ignore error
+                    if (!createError.message?.includes('already exists')) {
+                        throw createError;
+                    }
+                }
+                
+                const destFile = new File(categoryDir, filename);
+                const destImagePath = destFile.uri;
                 const relativeImagePath = category + '/' + filename;
                 
                 // Check if already deleted
@@ -495,31 +568,32 @@ export async function importImagesFromZip(db, zipFileUri) {
                 
                 // Check if already exists in database
                 const existing = await db.getFirstAsync(
-                    'SELECT id FROM items WHERE image_path = ?',
+                    'SELECT id, name FROM items WHERE image_path = ?',
                     [relativeImagePath]
                 );
                 
                 if (existing) {
-                    skipped++;
-                    console.log('Skipping existing item:', name);
+                    // If item exists but name is different (e.g., was imported without mapping),
+                    // update the name
+                    if (existing.name !== name) {
+                        await db.runAsync(
+                            'UPDATE items SET name = ? WHERE id = ?',
+                            [name, existing.id]
+                        );
+                        console.log(`Updated name for ${filename}: ${existing.name} -> ${name}`);
+                        imported++;
+                    } else {
+                        skipped++;
+                        console.log('Skipping existing item:', name);
+                    }
                     continue;
                 }
                 
-                // Extract image data as Uint8Array then convert to base64
-                const imageArray = await zipEntry.async('uint8array');
+                // Extract image data as base64 string for writing
+                const imageBase64 = await zipEntry.async('base64');
                 
-                // Convert Uint8Array to base64 string
-                let binary = '';
-                const len = imageArray.byteLength;
-                for (let i = 0; i < len; i++) {
-                    binary += String.fromCharCode(imageArray[i]);
-                }
-                const imageBase64 = btoa(binary);
-                
-                // Write image to app's internal storage
-                await FileSystem.writeAsStringAsync(destImageUri, imageBase64, {
-                    encoding: FileSystem.EncodingType.Base64
-                });
+                // Write image to app's internal storage using legacy API (more reliable)
+                await writeAsStringAsync(destFile.uri, imageBase64, { encoding: 'base64' });
                 
                 // Add to database
                 await addItem(db, {

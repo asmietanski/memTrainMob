@@ -10,7 +10,7 @@ import {
   Dimensions,
   Alert,
 } from 'react-native';
-import { getItemsByCategory, updateItemAfterReview, deleteItem } from '../utils/database';
+import { getItemsByCategory, updateItemAfterReview, deleteItem, getImageUri } from '../utils/database';
 import { calculateNextInterval, getDueItems } from '../utils/srsAlgorithm';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -121,6 +121,9 @@ export default function StudyScreen({ route, navigation, db }) {
         correct: prev.correct + (quality >= 3 ? 1 : 0),
         failed: prev.failed + (quality < 3 ? 1 : 0),
       }));
+
+      // Reset showAnswer for next card
+      setShowAnswer(false);
 
       if (currentIndex < items.length - 1) {
         setCurrentIndex(currentIndex + 1);
@@ -234,7 +237,7 @@ export default function StudyScreen({ route, navigation, db }) {
           </Animated.View>
 
           <Image
-            source={{ uri: currentItem.image_path }}
+            source={{ uri: getImageUri(currentItem.image_path) }}
             style={styles.image}
             resizeMode="contain"
           />

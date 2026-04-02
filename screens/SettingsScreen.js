@@ -15,7 +15,7 @@ export default function SettingsScreen({ db }) {
       // Show instructions
       Alert.alert(
         'Import Images from ZIP',
-        'Create a ZIP file with your images:\n\n✅ Single category:\nCountries.zip\n└── Countries_in_Europe/\n    ├── image_001.jpg\n    └── ...\n\n✅ Multiple categories:\nmemTrain.zip\n├── Category1/\n└── Category2/\n\nSelect the ZIP to import.',
+        'Create a ZIP file with your images:\n\n✅ Single category:\nCountries.zip\n└── Countries_in_Europe/\n    ├── image_mapping.json\n    ├── image_001.jpg\n    └── ...\n\n✅ Multiple categories:\nmemTrain.zip\n├── Category1/\n└── Category2/\n\n💡 Include image_mapping.json to use proper names instead of filenames.\n\n🔄 Re-importing updates existing items with correct names.',
         [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Select ZIP', onPress: selectAndImportZip }
