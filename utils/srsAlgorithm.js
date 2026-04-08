@@ -115,9 +115,9 @@ export function getDueItems(items) {
     items.forEach(item => {
         const nextReview = item.nextReviewDate ? new Date(item.nextReviewDate) : null;
         
-        // Only include items that are due (next_review_date <= now)
-        if (!nextReview || nextReview > now) {
-            return;  // Skip items not yet due
+        // Skip items not yet due (only if they have a future date)
+        if (nextReview && nextReview > now) {
+            return;  // Skip items scheduled for future
         }
         
         // Scheduled reviews (interval > 0, repetitions > 0)
