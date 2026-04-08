@@ -130,7 +130,7 @@ export async function updateItemAfterReview(db, itemId, quality, newEF, newInter
     } else {
         const nextDate = new Date();
         nextDate.setDate(nextDate.getDate() + newInterval);
-        nextDate.setHours(4, 0, 0, 0);
+        nextDate.setHours(6, 0, 0, 0);  // Set to 6 AM (matches desktop app)
         nextReviewDate = nextDate.toISOString();
     }
     

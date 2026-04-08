@@ -64,9 +64,9 @@ export function calculateNextInterval(quality, currentEF, currentInterval, repet
 
 /**
  * Calculate next review date based on interval
- * 
+ *
  * @param {number} interval - Interval in days (0 means today)
- * @returns {Date} - Next review date at 4 AM
+ * @returns {Date} - Next review date at 6 AM
  */
 export function calculateNextReviewDate(interval) {
     const now = new Date();
@@ -76,10 +76,10 @@ export function calculateNextReviewDate(interval) {
         return now;
     }
     
-    // Set to 4 AM on the target day
+    // Set to 6 AM on the target day (matches desktop app)
     const nextReview = new Date(now);
     nextReview.setDate(now.getDate() + interval);
-    nextReview.setHours(4, 0, 0, 0);
+    nextReview.setHours(6, 0, 0, 0);
     
     return nextReview;
 }
@@ -115,17 +115,21 @@ export function getDueItems(items) {
     items.forEach(item => {
         const nextReview = item.nextReviewDate ? new Date(item.nextReviewDate) : null;
         
+        // Only include items that are due (next_review_date <= now)
+        if (!nextReview || nextReview > now) {
+            return;  // Skip items not yet due
+        }
+        
         // Scheduled reviews (interval > 0, repetitions > 0)
-        if (item.repetitions > 0 && nextReview && nextReview <= now) {
+        if (item.interval > 0 && item.repetitions > 0) {
             scheduled.push({ ...item, priority: 0 });
         }
         // Failed items (interval = 0, repetitions = 0, reviewed before)
         else if (item.interval === 0 && item.repetitions === 0 && item.lastReviewedAt) {
             failed.push({ ...item, priority: 1 });
         }
-        // New items (never reviewed)
+        // New items (never reviewed) - only if failed count < 20
         else if (!item.lastReviewedAt && failedCount < 20) {
-            // Only show new items if failed count < 20
             newItems.push({ ...item, priority: 2 });
         }
     });

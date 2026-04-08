@@ -260,35 +260,57 @@ export default function StudyScreen({ route, navigation, db }) {
         </TouchableOpacity>
       ) : (
         <View style={styles.controlsContainer}>
-          <Text style={styles.swipeHint}>← Swipe or tap buttons →</Text>
+          <Text style={styles.swipeHint}>Rate your recall (0-5)</Text>
           
           <View style={styles.buttonRow}>
             <TouchableOpacity
-              style={[styles.qualityButton, styles.wrongButton]}
+              style={[styles.qualityButton, styles.blackoutButton]}
               onPress={() => handleQualityButton(0)}
             >
-              <Text style={styles.buttonText}>❌ Wrong</Text>
+              <Text style={styles.buttonText}>0</Text>
+              <Text style={styles.buttonSubtext}>Blackout</Text>
             </TouchableOpacity>
 
+            <TouchableOpacity
+              style={[styles.qualityButton, styles.wrongFamiliarButton]}
+              onPress={() => handleQualityButton(1)}
+            >
+              <Text style={styles.buttonText}>1</Text>
+              <Text style={styles.buttonSubtext}>Wrong, familiar</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.qualityButton, styles.wrongEasyButton]}
+              onPress={() => handleQualityButton(2)}
+            >
+              <Text style={styles.buttonText}>2</Text>
+              <Text style={styles.buttonSubtext}>Wrong, easy</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.buttonRow}>
             <TouchableOpacity
               style={[styles.qualityButton, styles.hardButton]}
               onPress={() => handleQualityButton(3)}
             >
-              <Text style={styles.buttonText}>😓 Hard</Text>
+              <Text style={styles.buttonText}>3</Text>
+              <Text style={styles.buttonSubtext}>Hard</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.qualityButton, styles.goodButton]}
               onPress={() => handleQualityButton(4)}
             >
-              <Text style={styles.buttonText}>👍 Good</Text>
+              <Text style={styles.buttonText}>4</Text>
+              <Text style={styles.buttonSubtext}>Good</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.qualityButton, styles.easyButton]}
               onPress={() => handleQualityButton(5)}
             >
-              <Text style={styles.buttonText}>✅ Easy</Text>
+              <Text style={styles.buttonText}>5</Text>
+              <Text style={styles.buttonSubtext}>Easy</Text>
             </TouchableOpacity>
           </View>
 
@@ -428,13 +450,20 @@ const styles = StyleSheet.create({
   },
   qualityButton: {
     flex: 1,
-    padding: 15,
+    padding: 12,
     borderRadius: 10,
     marginHorizontal: 3,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  wrongButton: {
-    backgroundColor: '#f44336',
+  blackoutButton: {
+    backgroundColor: '#B71C1C',
+  },
+  wrongFamiliarButton: {
+    backgroundColor: '#D32F2F',
+  },
+  wrongEasyButton: {
+    backgroundColor: '#F44336',
   },
   hardButton: {
     backgroundColor: '#FF9800',
@@ -448,7 +477,12 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#fff',
     fontWeight: 'bold',
-    fontSize: 12,
+    fontSize: 16,
+  },
+  buttonSubtext: {
+    color: '#fff',
+    fontSize: 10,
+    marginTop: 2,
   },
   deleteButton: {
     backgroundColor: '#757575',
