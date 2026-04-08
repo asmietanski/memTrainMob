@@ -98,11 +98,11 @@ export function getDueItems(items) {
     todayStart.setHours(0, 0, 0, 0);
     
     // Count failed items reviewed today
-    const failedItems = items.filter(item => 
-        item.interval === 0 && 
-        item.repetitions === 0 && 
-        item.lastReviewedAt && 
-        new Date(item.lastReviewedAt) >= todayStart
+    const failedItems = items.filter(item =>
+        item.interval === 0 &&
+        item.repetitions === 0 &&
+        item.last_reviewed_at &&
+        new Date(item.last_reviewed_at) >= todayStart
     );
     
     const failedCount = failedItems.length;
@@ -125,11 +125,11 @@ export function getDueItems(items) {
             scheduled.push({ ...item, priority: 0 });
         }
         // Failed items (interval = 0, repetitions = 0, reviewed before)
-        else if (item.interval === 0 && item.repetitions === 0 && item.lastReviewedAt) {
+        else if (item.interval === 0 && item.repetitions === 0 && item.last_reviewed_at) {
             failed.push({ ...item, priority: 1 });
         }
         // New items (never reviewed) - only if failed count < 20
-        else if (!item.lastReviewedAt && failedCount < 20) {
+        else if (!item.last_reviewed_at && failedCount < 20) {
             newItems.push({ ...item, priority: 2 });
         }
     });
@@ -161,16 +161,16 @@ export function getStatistics(items) {
     todayStart.setHours(0, 0, 0, 0);
     
     const dueItems = getDueItems(items);
-    const failedToday = items.filter(item => 
-        item.interval === 0 && 
-        item.repetitions === 0 && 
-        item.lastReviewedAt && 
-        new Date(item.lastReviewedAt) >= todayStart
+    const failedToday = items.filter(item =>
+        item.interval === 0 &&
+        item.repetitions === 0 &&
+        item.last_reviewed_at &&
+        new Date(item.last_reviewed_at) >= todayStart
     );
     
-    const reviewedToday = items.filter(item => 
-        item.lastReviewedAt && 
-        new Date(item.lastReviewedAt) >= todayStart
+    const reviewedToday = items.filter(item =>
+        item.last_reviewed_at &&
+        new Date(item.last_reviewed_at) >= todayStart
     );
     
     return {
