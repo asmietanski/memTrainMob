@@ -134,9 +134,11 @@ export async function updateItemAfterReview(db, itemId, quality, newEF, newInter
         nextReviewDate = nextDate.toISOString();
     }
     
+    console.log(`[updateItemAfterReview] itemId=${itemId}, quality=${quality}, newInterval=${newInterval}, nextReviewDate=${nextReviewDate}`);
+    
     // Update item
     await db.runAsync(
-        `UPDATE items 
+        `UPDATE items
          SET easiness_factor = ?,
              interval = ?,
              repetitions = ?,

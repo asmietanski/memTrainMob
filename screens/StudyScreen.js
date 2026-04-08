@@ -36,8 +36,17 @@ export default function StudyScreen({ route, navigation, db }) {
 
   const loadItems = async () => {
     try {
+      console.log(`[StudyScreen] Loading items for category: ${category}`);
       const allItems = await getItemsByCategory(db, category);
+      console.log(`[StudyScreen] Got ${allItems.length} total items from database`);
+      
+      // Log first few items to see their structure
+      if (allItems.length > 0) {
+        console.log('[StudyScreen] Sample item:', JSON.stringify(allItems[0], null, 2));
+      }
+      
       const dueItems = getDueItems(allItems);
+      console.log(`[StudyScreen] After filtering: ${dueItems.length} items due for review`);
       setItems(dueItems);
       
       if (dueItems.length === 0) {

@@ -97,6 +97,8 @@ export function getDueItems(items) {
     const todayStart = new Date(now);
     todayStart.setHours(0, 0, 0, 0);
     
+    console.log(`[getDueItems] now=${now.toISOString()}, checking ${items.length} items`);
+    
     // Count failed items reviewed today
     const failedItems = items.filter(item =>
         item.interval === 0 &&
@@ -113,40 +115,54 @@ export function getDueItems(items) {
     const newItems = [];
     
     items.forEach(item => {
-        const nextReview = item.nextReviewDate ? new Date(item.nextReviewDate) : null;
+        const nextReview = item.next_review_date ? new Date(item.next_review_date) : null;
+        
+        console.log(`[getDueItems] Item ${item.id}: interval=${item.interval}, reps=${item.repetitions}, next_review=${item.next_review_date}, last_reviewed=${item.last_reviewed_at}`);
         
         // Skip items not yet due (only if they have a future date)
         if (nextReview && nextReview > now) {
+            console.log(`[getDueItems]   -> SKIPPED (future): next_review=${nextReview.toISOString()} > now=${now.toISOString()}`);
             return;  // Skip items scheduled for future
         }
         
         // Scheduled reviews (interval > 0, repetitions > 0)
         if (item.interval > 0 && item.repetitions > 0) {
+            console.log(`[getDueItems]   -> SCHEDULED (interval=${item.interval}, reps=${item.repetitions})`);
             scheduled.push({ ...item, priority: 0 });
         }
         // Failed items (interval = 0, repetitions = 0, reviewed before)
         else if (item.interval === 0 && item.repetitions === 0 && item.last_reviewed_at) {
+            console.log(`[getDueItems]   -> FAILED (needs re-review)`);
             failed.push({ ...item, priority: 1 });
         }
         // New items (never reviewed) - only if failed count < 20
         else if (!item.last_reviewed_at && failedCount < 20) {
+            console.log(`[getDueItems]   -> NEW (never reviewed, failedCount=${failedCount})`);
             newItems.push({ ...item, priority: 2 });
+        }
+        else {
+            console.log(`[getDueItems]   -> EXCLUDED (doesn't match any category or failedCount >= 20)`);
         }
     });
     
     // Sort scheduled by date (oldest first)
-    scheduled.sort((a, b) => 
-        new Date(a.nextReviewDate) - new Date(b.nextReviewDate)
+    scheduled.sort((a, b) =>
+        new Date(a.next_review_date) - new Date(b.next_review_date)
     );
+    
+    console.log(`[getDueItems] Result: ${scheduled.length} scheduled, ${failed.length} failed, ${newItems.length} new = ${scheduled.length + failed.length + newItems.length} total`);
     
     // Shuffle failed and new items for variety
     const shuffled = (arr) => arr.sort(() => Math.random() - 0.5);
     
-    return [
+    const result = [
         ...scheduled,
         ...shuffled(failed),
         ...shuffled(newItems)
     ];
+    
+    console.log(`[getDueItems] Returning ${result.length} items`);
+    return result;
 }
 
 /**
