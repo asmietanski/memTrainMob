@@ -152,13 +152,20 @@ export function getDueItems(items) {
     
     console.log(`[getDueItems] Result: ${scheduled.length} scheduled, ${failed.length} failed, ${newItems.length} new = ${scheduled.length + failed.length + newItems.length} total`);
     
-    // Shuffle failed and new items for variety
-    const shuffled = (arr) => arr.sort(() => Math.random() - 0.5);
+    // Fisher-Yates shuffle algorithm for better randomization
+    const shuffle = (arr) => {
+        const shuffled = [...arr];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        return shuffled;
+    };
     
     const result = [
         ...scheduled,
-        ...shuffled(failed),
-        ...shuffled(newItems)
+        ...shuffle(failed),
+        ...shuffle(newItems)
     ];
     
     console.log(`[getDueItems] Returning ${result.length} items`);
