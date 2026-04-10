@@ -145,13 +145,6 @@ export function getDueItems(items) {
         }
     });
     
-    // Sort scheduled by date (oldest first)
-    scheduled.sort((a, b) =>
-        new Date(a.next_review_date) - new Date(b.next_review_date)
-    );
-    
-    console.log(`[getDueItems] Result: ${scheduled.length} scheduled, ${failed.length} failed, ${newItems.length} new = ${scheduled.length + failed.length + newItems.length} total`);
-    
     // Fisher-Yates shuffle algorithm for better randomization
     const shuffle = (arr) => {
         const shuffled = [...arr];
@@ -162,8 +155,30 @@ export function getDueItems(items) {
         return shuffled;
     };
     
+    // Sort scheduled by date (oldest first), then shuffle items with same date
+    // Group by date first
+    const scheduledByDate = {};
+    scheduled.forEach(item => {
+        const dateKey = item.next_review_date || 'null';
+        if (!scheduledByDate[dateKey]) {
+            scheduledByDate[dateKey] = [];
+        }
+        scheduledByDate[dateKey].push(item);
+    });
+    
+    // Sort date groups and shuffle within each group
+    const sortedScheduled = Object.keys(scheduledByDate)
+        .sort((a, b) => {
+            if (a === 'null') return 1;
+            if (b === 'null') return -1;
+            return new Date(a) - new Date(b);
+        })
+        .flatMap(dateKey => shuffle(scheduledByDate[dateKey]));
+    
+    console.log(`[getDueItems] Result: ${scheduled.length} scheduled, ${failed.length} failed, ${newItems.length} new = ${scheduled.length + failed.length + newItems.length} total`);
+    
     const result = [
-        ...scheduled,
+        ...sortedScheduled,
         ...shuffle(failed),
         ...shuffle(newItems)
     ];
