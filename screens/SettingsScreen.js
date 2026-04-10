@@ -1,10 +1,57 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, TextInput } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { importImagesFromZip } from '../utils/database';
+
+const SETTINGS_KEY = '@memTrain_settings';
+const DEFAULT_MAX_NEW_ITEMS = 30;
 
 export default function SettingsScreen({ db }) {
   const [isImporting, setIsImporting] = useState(false);
+  const [maxNewItems, setMaxNewItems] = useState(DEFAULT_MAX_NEW_ITEMS.toString());
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    try {
+      const settings = await AsyncStorage.getItem(SETTINGS_KEY);
+      if (settings) {
+        const parsed = JSON.parse(settings);
+        setMaxNewItems((parsed.maxNewItemsPerDay || DEFAULT_MAX_NEW_ITEMS).toString());
+      }
+    } catch (error) {
+      console.error('Error loading settings:', error);
+    }
+  };
+
+  const saveSettings = async () => {
+    try {
+      setIsSaving(true);
+      const value = parseInt(maxNewItems, 10);
+      
+      if (isNaN(value) || value < 1 || value > 100) {
+        Alert.alert('Invalid Value', 'Please enter a number between 1 and 100');
+        setIsSaving(false);
+        return;
+      }
+
+      const settings = {
+        maxNewItemsPerDay: value
+      };
+      
+      await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+      setIsSaving(false);
+      Alert.alert('Success', 'Settings saved!');
+    } catch (error) {
+      setIsSaving(false);
+      console.error('Error saving settings:', error);
+      Alert.alert('Error', 'Failed to save settings');
+    }
+  };
 
   const handleExportData = () => {
     Alert.alert('Export Data', 'Export functionality coming soon!');
@@ -88,6 +135,36 @@ export default function SettingsScreen({ db }) {
   return (
     <View style={styles.container}>
       <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Learning Settings</Text>
+        
+        <View style={styles.settingRow}>
+          <View style={styles.settingInfo}>
+            <Text style={styles.settingLabel}>Max New Items Per Day</Text>
+            <Text style={styles.settingDescription}>
+              Limit how many new items you learn each day (1-100)
+            </Text>
+          </View>
+          <TextInput
+            style={styles.input}
+            value={maxNewItems}
+            onChangeText={setMaxNewItems}
+            keyboardType="number-pad"
+            maxLength={3}
+          />
+        </View>
+
+        <TouchableOpacity
+          style={[styles.button, isSaving && styles.disabledButton]}
+          onPress={saveSettings}
+          disabled={isSaving}
+        >
+          <Text style={styles.buttonText}>
+            {isSaving ? 'Saving...' : '💾 Save Settings'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.section}>
         <Text style={styles.sectionTitle}>Data Management</Text>
         
         <TouchableOpacity style={styles.button} onPress={handleExportData}>
@@ -135,6 +212,41 @@ const styles = StyleSheet.create({
   },
   section: {
     backgroundColor: '#fff',
+  settingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  settingInfo: {
+    flex: 1,
+    marginRight: 15,
+  },
+  settingLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  settingDescription: {
+    fontSize: 12,
+    color: '#666',
+  },
+  input: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    textAlign: 'center',
+    minWidth: 60,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
     borderRadius: 15,
     padding: 20,
     marginBottom: 15,

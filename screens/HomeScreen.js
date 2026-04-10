@@ -12,6 +12,7 @@ import { getStatistics, getCategories } from '../utils/database';
 export default function HomeScreen({ navigation, db }) {
   const [stats, setStats] = useState(null);
   const [categories, setCategories] = useState([]);
+  const [categoryStats, setCategoryStats] = useState({});
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -24,6 +25,13 @@ export default function HomeScreen({ navigation, db }) {
       const cats = await getCategories(db);
       setStats(statistics);
       setCategories(cats);
+      
+      // Load statistics for each category
+      const catStats = {};
+      for (const cat of cats) {
+        catStats[cat] = await getStatistics(db, cat);
+      }
+      setCategoryStats(catStats);
     } catch (error) {
       console.error('Error loading data:', error);
     }
@@ -119,16 +127,34 @@ export default function HomeScreen({ navigation, db }) {
       {categories.length > 0 && (
         <View style={styles.categoriesContainer}>
           <Text style={styles.sectionTitle}>Categories ({categories.length})</Text>
-          {categories.map((category, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.categoryItem}
-              onPress={() => navigation.navigate('Study', { category: category })}
-            >
-              <Text style={styles.categoryText}>{category}</Text>
-              <Text style={styles.categoryArrow}>→</Text>
-            </TouchableOpacity>
-          ))}
+          {categories.map((category, index) => {
+            const catStats = categoryStats[category] || { due: 0, failed: 0, total: 0 };
+            return (
+              <TouchableOpacity
+                key={index}
+                style={styles.categoryItem}
+                onPress={() => navigation.navigate('Study', { category: category })}
+              >
+                <View style={styles.categoryHeader}>
+                  <Text style={styles.categoryText}>{category}</Text>
+                  <Text style={styles.categoryArrow}>→</Text>
+                </View>
+                <View style={styles.categoryStats}>
+                  <Text style={styles.categoryStatText}>
+                    Due: <Text style={styles.categoryStatNumber}>{catStats.due}</Text>
+                  </Text>
+                  <Text style={styles.categoryStatSeparator}>•</Text>
+                  <Text style={styles.categoryStatText}>
+                    Failed: <Text style={styles.categoryStatNumber}>{catStats.failed}</Text>
+                  </Text>
+                  <Text style={styles.categoryStatSeparator}>•</Text>
+                  <Text style={styles.categoryStatText}>
+                    Total: <Text style={styles.categoryStatNumber}>{catStats.total}</Text>
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       )}
     </ScrollView>
@@ -237,25 +263,46 @@ const styles = StyleSheet.create({
     padding: 15,
   },
   categoryItem: {
-    backgroundColor: '#fff',
+    backgroundColor: '#F5F0E8',
     borderRadius: 10,
     padding: 15,
     marginBottom: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
+  categoryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   categoryText: {
     fontSize: 16,
+    fontWeight: '600',
     color: '#333',
   },
   categoryArrow: {
     fontSize: 20,
     color: '#2196F3',
+  },
+  categoryStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  categoryStatText: {
+    fontSize: 13,
+    color: '#666',
+  },
+  categoryStatNumber: {
+    fontWeight: '600',
+    color: '#2196F3',
+  },
+  categoryStatSeparator: {
+    marginHorizontal: 8,
+    color: '#999',
   },
 });

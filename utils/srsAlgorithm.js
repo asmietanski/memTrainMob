@@ -2,6 +2,8 @@
  * Spaced Repetition System (SRS) using SuperMemo SM-2 Algorithm
  * Ported from memTrain Python implementation
  */
+import { getMaxNewItemsPerDay } from './settings';
+
 
 /**
  * Calculate next review interval using SM-2 algorithm with enhanced recovery boost
@@ -88,16 +90,20 @@ export function calculateNextReviewDate(interval) {
  * Get items due for review
  * Priority: Scheduled reviews → Failed items → New items
  * If 20+ failed items exist today, hide new items
- * 
+ * Limits new items per day based on user settings
+ *
  * @param {Array} items - All items from database
- * @returns {Array} - Items due for review, sorted by priority
+ * @returns {Promise<Array>} - Items due for review, sorted by priority
  */
-export function getDueItems(items) {
+export async function getDueItems(items) {
     const now = new Date();
     const todayStart = new Date(now);
     todayStart.setHours(0, 0, 0, 0);
     
-    console.log(`[getDueItems] now=${now.toISOString()}, checking ${items.length} items`);
+    // Get max new items per day setting
+    const maxNewItems = await getMaxNewItemsPerDay();
+    
+    console.log(`[getDueItems] now=${now.toISOString()}, checking ${items.length} items, maxNewItems=${maxNewItems}`);
     
     // Count failed items reviewed today
     const failedItems = items.filter(item =>
@@ -176,19 +182,26 @@ export function getDueItems(items) {
         .flatMap(dateKey => shuffle(scheduledByDate[dateKey]));
     
     console.log(`[getDueItems] Result: ${scheduled.length} scheduled, ${failed.length} failed, ${newItems.length} new = ${scheduled.length + failed.length + newItems.length} total`);
-    console.log(`[getDueItems] Order: SCHEDULED first, then FAILED, then NEW`);
+    console.log(`[getDueItems] Order: SCHEDULED first, then FAILED, then NEW (max ${maxNewItems} new items)`);
     
     const shuffledFailed = shuffle(failed);
     const shuffledNew = shuffle(newItems);
+    
+    // Limit new items to maxNewItems per day
+    const limitedNew = shuffledNew.slice(0, maxNewItems);
+    
+    if (limitedNew.length < shuffledNew.length) {
+        console.log(`[getDueItems] Limited new items from ${shuffledNew.length} to ${limitedNew.length} (max: ${maxNewItems})`);
+    }
     
     // IMPORTANT: Order matters! Failed items MUST come before new items
     const result = [
         ...sortedScheduled,   // Priority 0: Scheduled reviews (sorted by date, shuffled within same date)
         ...shuffledFailed,    // Priority 1: Failed items (random order)
-        ...shuffledNew        // Priority 2: New items (random order)
+        ...limitedNew         // Priority 2: New items (random order, limited to maxNewItems)
     ];
     
-    console.log(`[getDueItems] Returning ${result.length} items: ${sortedScheduled.length} scheduled + ${shuffledFailed.length} failed + ${shuffledNew.length} new`);
+    console.log(`[getDueItems] Returning ${result.length} items: ${sortedScheduled.length} scheduled + ${shuffledFailed.length} failed + ${limitedNew.length} new`);
     
     return result;
 }

@@ -45,7 +45,7 @@ export default function StudyScreen({ route, navigation, db }) {
         console.log('[StudyScreen] Sample item:', JSON.stringify(allItems[0], null, 2));
       }
       
-      const dueItems = getDueItems(allItems);
+      const dueItems = await getDueItems(allItems);
       console.log(`[StudyScreen] After filtering: ${dueItems.length} items due for review`);
       setItems(dueItems);
       
