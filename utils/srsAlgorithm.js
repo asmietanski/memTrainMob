@@ -131,7 +131,7 @@ export function getDueItems(items) {
             scheduled.push({ ...item, priority: 0 });
         }
         // Failed items (interval = 0, repetitions = 0, reviewed before)
-        else if (item.interval === 0 && item.repetitions === 0 && item.last_reviewed_at) {
+        else if (item.interval === 0 && item.repetitions === 0 && item.last_reviewed_at != null && item.last_reviewed_at !== '') {
             console.log(`[getDueItems]   -> FAILED (needs re-review)`);
             failed.push({ ...item, priority: 1 });
         }
@@ -176,14 +176,20 @@ export function getDueItems(items) {
         .flatMap(dateKey => shuffle(scheduledByDate[dateKey]));
     
     console.log(`[getDueItems] Result: ${scheduled.length} scheduled, ${failed.length} failed, ${newItems.length} new = ${scheduled.length + failed.length + newItems.length} total`);
+    console.log(`[getDueItems] Order: SCHEDULED first, then FAILED, then NEW`);
     
+    const shuffledFailed = shuffle(failed);
+    const shuffledNew = shuffle(newItems);
+    
+    // IMPORTANT: Order matters! Failed items MUST come before new items
     const result = [
-        ...sortedScheduled,
-        ...shuffle(failed),
-        ...shuffle(newItems)
+        ...sortedScheduled,   // Priority 0: Scheduled reviews (sorted by date, shuffled within same date)
+        ...shuffledFailed,    // Priority 1: Failed items (random order)
+        ...shuffledNew        // Priority 2: New items (random order)
     ];
     
-    console.log(`[getDueItems] Returning ${result.length} items`);
+    console.log(`[getDueItems] Returning ${result.length} items: ${sortedScheduled.length} scheduled + ${shuffledFailed.length} failed + ${shuffledNew.length} new`);
+    
     return result;
 }
 
