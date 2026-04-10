@@ -379,7 +379,7 @@ const styles = StyleSheet.create({
   card: {
     width: SCREEN_WIDTH * 0.9,
     height: SCREEN_WIDTH * 1.2,
-    backgroundColor: '#fff',
+    backgroundColor: '#F5F0E8',
     borderRadius: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -415,8 +415,8 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '70%',
     borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#000',
+    borderWidth: 0,
+    borderColor: 'transparent',
   },
   answerContainer: {
     marginTop: 20,
