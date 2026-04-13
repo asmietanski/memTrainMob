@@ -7,14 +7,15 @@ import { getMaxNewItemsPerDay } from './settings';
 
 /**
  * Calculate next review interval using SM-2 algorithm with enhanced recovery boost
- * 
+ *
  * @param {number} quality - User's response quality (0-5)
  * @param {number} currentEF - Current easiness factor
  * @param {number} currentInterval - Current interval in days
  * @param {number} repetitions - Number of successful repetitions
+ * @param {string} lastReviewedAt - ISO timestamp of last review (optional)
  * @returns {object} - { newEF, newInterval, newRepetitions }
  */
-export function calculateNextInterval(quality, currentEF, currentInterval, repetitions) {
+export function calculateNextInterval(quality, currentEF, currentInterval, repetitions, lastReviewedAt = null) {
     // Calculate new easiness factor using standard SM-2 formula
     let newEF = currentEF + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
     
@@ -46,14 +47,26 @@ export function calculateNextInterval(quality, currentEF, currentInterval, repet
         newInterval = 0;  // 0 means show again today (immediately available)
     } else {
         // Correct response
-        newRepetitions = repetitions + 1;
+        // Check if item was already reviewed today (same-day re-learning)
+        const wasReviewedToday = lastReviewedAt ? isSameDay(new Date(lastReviewedAt), new Date()) : false;
         
-        if (newRepetitions === 1) {
+        if (wasReviewedToday && repetitions > 0) {
+            // Same-day re-learning: don't advance repetitions too fast
+            // Keep current repetitions and set interval to 1 day
+            newRepetitions = repetitions;
             newInterval = 1;
-        } else if (newRepetitions === 2) {
-            newInterval = 6;
+            console.log(`[calculateNextInterval] Same-day re-learning detected: keeping reps=${newRepetitions}, interval=1`);
         } else {
-            newInterval = Math.round(currentInterval * newEF);
+            // Normal progression
+            newRepetitions = repetitions + 1;
+            
+            if (newRepetitions === 1) {
+                newInterval = 1;
+            } else if (newRepetitions === 2) {
+                newInterval = 6;
+            } else {
+                newInterval = Math.round(currentInterval * newEF);
+            }
         }
     }
     
@@ -62,6 +75,18 @@ export function calculateNextInterval(quality, currentEF, currentInterval, repet
         newInterval,
         newRepetitions
     };
+}
+
+/**
+ * Check if two dates are on the same day
+ * @param {Date} date1
+ * @param {Date} date2
+ * @returns {boolean}
+ */
+function isSameDay(date1, date2) {
+    return date1.getFullYear() === date2.getFullYear() &&
+           date1.getMonth() === date2.getMonth() &&
+           date1.getDate() === date2.getDate();
 }
 
 /**

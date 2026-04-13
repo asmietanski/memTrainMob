@@ -120,7 +120,8 @@ export default function StudyScreen({ route, navigation, db }) {
         quality,
         item.easiness_factor || 2.5,
         item.interval || 0,
-        item.repetitions || 0
+        item.repetitions || 0,
+        item.last_reviewed_at  // Pass last review date for same-day detection
       );
 
       await updateItemAfterReview(db, item.id, quality, newEF, newInterval, newRepetitions);
