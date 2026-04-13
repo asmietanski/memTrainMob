@@ -130,29 +130,36 @@ export default function HomeScreen({ navigation, db }) {
           {categories.map((category, index) => {
             const catStats = categoryStats[category] || { due: 0, failed: 0, total: 0 };
             return (
-              <TouchableOpacity
-                key={index}
-                style={styles.categoryItem}
-                onPress={() => navigation.navigate('Study', { category: category })}
-              >
-                <View style={styles.categoryHeader}>
-                  <Text style={styles.categoryText}>{category}</Text>
-                  <Text style={styles.categoryArrow}>→</Text>
-                </View>
-                <View style={styles.categoryStats}>
-                  <Text style={styles.categoryStatText}>
-                    Due: <Text style={styles.categoryStatNumber}>{catStats.due}</Text>
-                  </Text>
-                  <Text style={styles.categoryStatSeparator}>•</Text>
-                  <Text style={styles.categoryStatText}>
-                    Failed: <Text style={styles.categoryStatNumber}>{catStats.failed}</Text>
-                  </Text>
-                  <Text style={styles.categoryStatSeparator}>•</Text>
-                  <Text style={styles.categoryStatText}>
-                    Total: <Text style={styles.categoryStatNumber}>{catStats.total}</Text>
-                  </Text>
-                </View>
-              </TouchableOpacity>
+              <View key={index} style={styles.categoryItemWrapper}>
+                <TouchableOpacity
+                  style={styles.categoryItem}
+                  onPress={() => navigation.navigate('Study', { category: category })}
+                >
+                  <View style={styles.categoryHeader}>
+                    <Text style={styles.categoryText}>{category}</Text>
+                    <Text style={styles.categoryArrow}>→</Text>
+                  </View>
+                  <View style={styles.categoryStats}>
+                    <Text style={styles.categoryStatText}>
+                      Due: <Text style={styles.categoryStatNumber}>{catStats.due}</Text>
+                    </Text>
+                    <Text style={styles.categoryStatSeparator}>•</Text>
+                    <Text style={styles.categoryStatText}>
+                      Failed: <Text style={styles.categoryStatNumber}>{catStats.failed}</Text>
+                    </Text>
+                    <Text style={styles.categoryStatSeparator}>•</Text>
+                    <Text style={styles.categoryStatText}>
+                      Total: <Text style={styles.categoryStatNumber}>{catStats.total}</Text>
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.debugButton}
+                  onPress={() => navigation.navigate('Debug', { category: category, db: db })}
+                >
+                  <Text style={styles.debugButtonText}>🔍</Text>
+                </TouchableOpacity>
+              </View>
             );
           })}
         </View>
@@ -262,16 +269,37 @@ const styles = StyleSheet.create({
   categoriesContainer: {
     padding: 15,
   },
+  categoryItemWrapper: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    marginBottom: 10,
+  },
   categoryItem: {
+    flex: 1,
     backgroundColor: '#F5F0E8',
     borderRadius: 10,
     padding: 15,
-    marginBottom: 10,
+    marginRight: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+  debugButton: {
+    backgroundColor: '#FF9800',
+    borderRadius: 10,
+    width: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  debugButtonText: {
+    fontSize: 24,
   },
   categoryHeader: {
     flexDirection: 'row',

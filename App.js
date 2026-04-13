@@ -9,6 +9,7 @@ import StudyScreen from './screens/StudyScreen';
 import StatisticsScreen from './screens/StatisticsScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import WikipediaScraperScreen from './screens/WikipediaScraperScreen';
+import DebugScreen from './screens/DebugScreen';
 
 const Stack = createStackNavigator();
 
@@ -104,11 +105,18 @@ export default function App() {
           {props => <SettingsScreen {...props} db={db} />}
         </Stack.Screen>
 
-        <Stack.Screen 
-          name="WikipediaScraper" 
+        <Stack.Screen
+          name="WikipediaScraper"
           options={{ title: 'Add from Wikipedia' }}
         >
           {props => <WikipediaScraperScreen {...props} db={db} />}
+        </Stack.Screen>
+
+        <Stack.Screen
+          name="Debug"
+          options={{ title: 'Debug Database' }}
+        >
+          {props => <DebugScreen {...props} />}
         </Stack.Screen>
       </Stack.Navigator>
     </NavigationContainer>
